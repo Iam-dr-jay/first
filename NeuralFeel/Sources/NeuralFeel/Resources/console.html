@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuralFeel Console</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131c;
+    --surface2: #1c1c2a;
+    --border: #2a2a3d;
+    --text: #e8e8ff;
+    --muted: #6868a0;
+    --orange: #ff8c00;
+    --cyan: #00d4d4;
+    --indigo: #6366f1;
+    --purple: #a855f7;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+  #status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+    transition: background .4s;
+  }
+  #status-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  #status-label { font-size: 13px; color: var(--muted); }
+
+  /* ── Grid ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 16px;
+    padding: 20px 24px;
+    flex: 1;
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ── Telemetry ── */
+  #telemetry { grid-column: span 2; }
+  .metrics-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .metric {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .metric-icon { font-size: 20px; margin-bottom: 4px; }
+  .metric-val {
+    font-size: 28px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  #neural-state-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  #state-icon { font-size: 22px; }
+  #state-name { font-size: 16px; font-weight: 600; }
+  #state-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  #confidence-bar {
+    height: 4px; border-radius: 2px;
+    background: var(--border); margin-top: 6px; overflow: hidden;
+  }
+  #confidence-fill {
+    height: 100%; width: 0%; border-radius: 2px;
+    background: var(--purple);
+    transition: width .5s, background .5s;
+  }
+
+  /* ── Devices ── */
+  #devices { }
+  .device-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .device-row:last-child { border: none; }
+  .device-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0;
+    transition: background .3s;
+  }
+  .device-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .device-name { font-size: 13px; }
+  .device-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── Programs ── */
+  #programs { grid-column: span 2; }
+  .program-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .program-btn {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    transition: border-color .2s, background .2s, transform .1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .program-btn:hover { border-color: var(--muted); transform: translateY(-1px); }
+  .program-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--surface2)); border-color: var(--accent); }
+  .program-btn .p-icon { font-size: 22px; margin-bottom: 6px; }
+  .program-btn .p-name { font-size: 14px; font-weight: 600; }
+  .program-btn .p-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .program-btn .active-badge {
+    position: absolute; top: 8px; right: 8px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    display: none;
+  }
+  .program-btn.active .active-badge { display: block; box-shadow: 0 0 6px var(--accent); }
+
+  /* ── Intensity ── */
+  #intensity-card {}
+  .slider-wrap { display: flex; align-items: center; gap: 12px; }
+  input[type=range] {
+    flex: 1; -webkit-appearance: none;
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(to right, var(--purple) var(--pct, 70%), var(--border) var(--pct, 70%));
+    outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0 0 3px var(--purple);
+  }
+  #intensity-val { font-size: 18px; font-weight: 700; min-width: 44px; text-align: right; }
+
+  /* ── Quick Actions ── */
+  #actions { }
+  .action-grid { display: flex; flex-direction: column; gap: 8px; }
+  .action-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 16px; border-radius: 10px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    color: white;
+  }
+  .action-btn:hover { opacity: .85; transform: translateY(-1px); }
+  .action-btn:active { transform: scale(.98); }
+  .action-reset { background: linear-gradient(135deg, var(--purple), #7c3aed); }
+  .action-stop  { background: linear-gradient(135deg, var(--red), #dc2626); }
+
+  /* ── Motor Meters (DS4) ── */
+  #ds4-card {}
+  .motor-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .motor-label { font-size: 12px; color: var(--muted); width: 54px; flex-shrink: 0; }
+  .motor-bar-track {
+    flex: 1; height: 8px; border-radius: 4px;
+    background: var(--border); overflow: hidden;
+  }
+  .motor-bar-fill {
+    height: 100%; border-radius: 4px; width: 0%;
+    transition: width .3s, background .3s;
+  }
+  #left-bar-fill  { background: var(--orange); }
+  #right-bar-fill { background: var(--cyan); }
+  .motor-pct { font-size: 12px; min-width: 36px; text-align: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <div id="status-dot"></div>
+  <h1>NeuralFeel Console</h1>
+  <span id="status-label">Connecting to iPhone&hellip;</span>
+</header>
+
+<main>
+
+  <!-- Telemetry -->
+  <div class="card" id="telemetry">
+    <div class="card-title">Live Telemetry</div>
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-icon">❤️</div>
+        <div class="metric-val" id="hr-val" style="color:var(--red)">--</div>
+        <div class="metric-label">BPM</div>
+      </div>
+      <div class="metric">
+        <div class="metric-icon">〰️</div>
+        <div class="metric-val" id="hrv-val" style="color:var(--green)">--</div>
+        <div class="metric-label">HRV ms</div>
+      </div>
+      <div class="metric">
+        <div class="metric-icon">🫁</div>
+        <div class="metric-val" id="spo2-val" style="color:var(--cyan)">--</div>
+        <div class="metric-label">SpO2 %</div>
+      </div>
+    </div>
+    <div id="neural-state-bar">
+      <div id="state-icon">🧠</div>
+      <div>
+        <div id="state-name">Reading...</div>
+        <div id="state-desc">Waiting for biometrics</div>
+        <div id="confidence-bar"><div id="confidence-fill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Devices -->
+  <div class="card" id="devices">
+    <div class="card-title">Devices</div>
+    <div class="device-row">
+      <div class="device-dot on" id="dot-primary"></div>
+      <div>
+        <div class="device-name">iPhone 13 Pro Max</div>
+        <div class="device-sub" id="primary-sub">Primary · serving console</div>
+      </div>
+    </div>
+    <div class="device-row">
+      <div class="device-dot" id="dot-companion"></div>
+      <div>
+        <div class="device-name">iPhone 8 Plus</div>
+        <div class="device-sub" id="companion-sub">Companion · searching…</div>
+      </div>
+    </div>
+    <div class="device-row">
+      <div class="device-dot" id="dot-ds4"></div>
+      <div>
+        <div class="device-name">DualShock 4</div>
+        <div class="device-sub" id="ds4-sub">Bluetooth · waiting…</div>
+      </div>
+    </div>
+    <div class="device-row">
+      <div class="device-dot on"></div>
+      <div>
+        <div class="device-name">Surface Pro 6</div>
+        <div class="device-sub">Console · connected</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Programs -->
+  <div class="card" id="programs">
+    <div class="card-title">Feel Programs</div>
+    <div class="program-grid">
+      <button class="program-btn" data-program="Energy Boost" style="--accent:var(--orange)"
+        onclick="launchProgram('Energy Boost')">
+        <div class="active-badge"></div>
+        <div class="p-icon">⚡</div>
+        <div class="p-name">Energy Boost</div>
+        <div class="p-sub">Ascending neural drive</div>
+      </button>
+      <button class="program-btn" data-program="Calm Flow" style="--accent:var(--cyan)"
+        onclick="launchProgram('Calm Flow')">
+        <div class="active-badge"></div>
+        <div class="p-icon">🌊</div>
+        <div class="p-name">Calm Flow</div>
+        <div class="p-sub">Parasympathetic wave</div>
+      </button>
+      <button class="program-btn" data-program="Focus Lock" style="--accent:var(--indigo)"
+        onclick="launchProgram('Focus Lock')">
+        <div class="active-badge"></div>
+        <div class="p-icon">🎯</div>
+        <div class="p-name">Focus Lock</div>
+        <div class="p-sub">Neural metronome</div>
+      </button>
+      <button class="program-btn" data-program="Neural Reset" style="--accent:var(--purple)"
+        onclick="launchProgram('Neural Reset')">
+        <div class="active-badge"></div>
+        <div class="p-icon">🔄</div>
+        <div class="p-name">Neural Reset</div>
+        <div class="p-sub">Full system reboot</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Intensity -->
+  <div class="card" id="intensity-card">
+    <div class="card-title">Haptic Intensity</div>
+    <div class="slider-wrap" style="margin-bottom:8px">
+      <span style="font-size:16px">〰️</span>
+      <input type="range" id="intensity-slider" min="10" max="100" value="70"
+        oninput="onIntensity(this.value)">
+      <span id="intensity-val">70%</span>
+    </div>
+  </div>
+
+  <!-- DS4 Motors -->
+  <div class="card" id="ds4-card">
+    <div class="card-title">DS4 Motor Levels</div>
+    <div class="motor-row">
+      <div class="motor-label">Left 🔴</div>
+      <div class="motor-bar-track"><div class="motor-bar-fill" id="left-bar-fill"></div></div>
+      <div class="motor-pct" id="left-pct">0%</div>
+    </div>
+    <div class="motor-row">
+      <div class="motor-label">Right 🔵</div>
+      <div class="motor-bar-track"><div class="motor-bar-fill" id="right-bar-fill"></div></div>
+      <div class="motor-pct" id="right-pct">0%</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card" id="actions">
+    <div class="card-title">Quick Actions</div>
+    <div class="action-grid">
+      <button class="action-btn action-reset" onclick="sendCommand({command:'neuralReset'})">
+        🔄 Neural Reset
+      </button>
+      <button class="action-btn action-stop" onclick="stopSession()">
+        ⏹ Stop Session
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const BASE = window.location.origin;
+let evtSource = null;
+let activeProgram = null;
+
+// ── SSE connection ──
+function connectSSE() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource(BASE + '/sse');
+  evtSource.onopen = () => {
+    document.getElementById('status-dot').classList.add('connected');
+    document.getElementById('status-label').textContent = 'iPhone connected';
+  };
+  evtSource.onerror = () => {
+    document.getElementById('status-dot').classList.remove('connected');
+    document.getElementById('status-label').textContent = 'Reconnecting…';
+    setTimeout(connectSSE, 3000);
+  };
+  evtSource.onmessage = (e) => {
+    try { updateTelemetry(JSON.parse(e.data)); } catch(_) {}
+  };
+}
+
+// ── Telemetry update ──
+function updateTelemetry(d) {
+  if (d.heartRate !== undefined) {
+    document.getElementById('hr-val').textContent = d.heartRate > 0 ? Math.round(d.heartRate) : '--';
+  }
+  if (d.hrv !== undefined) {
+    document.getElementById('hrv-val').textContent = d.hrv > 0 ? Math.round(d.hrv) : '--';
+  }
+  if (d.spo2 !== undefined) {
+    document.getElementById('spo2-val').textContent = d.spo2 > 0 ? Math.round(d.spo2) : '--';
+  }
+  if (d.neuralState) {
+    const stateColors = {
+      Active: 'var(--orange)', Stressed: 'var(--red)',
+      Calm: 'var(--green)', Focused: 'var(--blue)', 'Reading...': 'var(--muted)'
+    };
+    const stateIcons = { Active:'🔥', Stressed:'⚠️', Calm:'🌿', Focused:'🎯', 'Reading...':'🧠' };
+    const stateDescs = {
+      Active: 'High arousal · elevated motion',
+      Stressed: 'Elevated HR · low HRV',
+      Calm: 'Low HR · high HRV',
+      Focused: 'Moderate HR · low motion',
+      'Reading...': 'Waiting for biometrics'
+    };
+    const color = stateColors[d.neuralState] || 'var(--muted)';
+    document.getElementById('state-icon').textContent = stateIcons[d.neuralState] || '🧠';
+    document.getElementById('state-name').textContent = d.neuralState;
+    document.getElementById('state-name').style.color = color;
+    document.getElementById('state-desc').textContent = stateDescs[d.neuralState] || '';
+    document.getElementById('confidence-fill').style.background = color;
+  }
+  if (d.confidence !== undefined) {
+    document.getElementById('confidence-fill').style.width = (d.confidence * 100) + '%';
+  }
+  if (d.activeProgram !== undefined) {
+    setActiveProgram(d.activeProgram);
+  }
+  if (d.companionConnected !== undefined) {
+    const dot = document.getElementById('dot-companion');
+    const sub = document.getElementById('companion-sub');
+    dot.classList.toggle('on', d.companionConnected);
+    sub.textContent = d.companionConnected ? 'Companion · synced via Multipeer' : 'Companion · searching…';
+  }
+  if (d.ds4Connected !== undefined) {
+    const dot = document.getElementById('dot-ds4');
+    const sub = document.getElementById('ds4-sub');
+    dot.classList.toggle('on', d.ds4Connected);
+    sub.textContent = d.ds4Connected ? 'DualShock 4 · connected' : 'DualShock 4 · waiting…';
+  }
+  if (d.ds4Left !== undefined) {
+    const pct = Math.round(d.ds4Left * 100);
+    document.getElementById('left-bar-fill').style.width = pct + '%';
+    document.getElementById('left-pct').textContent = pct + '%';
+  }
+  if (d.ds4Right !== undefined) {
+    const pct = Math.round(d.ds4Right * 100);
+    document.getElementById('right-bar-fill').style.width = pct + '%';
+    document.getElementById('right-pct').textContent = pct + '%';
+  }
+}
+
+// ── Program buttons ──
+function setActiveProgram(name) {
+  activeProgram = name;
+  document.querySelectorAll('.program-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.program === name);
+  });
+}
+function launchProgram(name) {
+  sendCommand({ command: 'launch', program: name });
+  setActiveProgram(name);
+}
+function stopSession() {
+  sendCommand({ command: 'stop' });
+  setActiveProgram(null);
+  document.getElementById('left-bar-fill').style.width = '0%';
+  document.getElementById('right-bar-fill').style.width = '0%';
+  document.getElementById('left-pct').textContent = '0%';
+  document.getElementById('right-pct').textContent = '0%';
+}
+
+// ── Intensity slider ──
+let intensityTimer = null;
+function onIntensity(val) {
+  document.getElementById('intensity-val').textContent = val + '%';
+  const slider = document.getElementById('intensity-slider');
+  slider.style.setProperty('--pct', val + '%');
+  clearTimeout(intensityTimer);
+  intensityTimer = setTimeout(() => {
+    sendCommand({ command: 'intensity', value: parseInt(val) / 100 });
+  }, 150);
+}
+
+// ── Send command ──
+function sendCommand(cmd) {
+  fetch(BASE + '/command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmd)
+  }).catch(() => {});
+}
+
+// Gamepad API for DS4 connected to Surface Pro
+window.addEventListener('gamepadconnected', (e) => {
+  document.getElementById('dot-ds4').classList.add('on');
+  document.getElementById('ds4-sub').textContent = `${e.gamepad.id} · via browser`;
+});
+window.addEventListener('gamepaddisconnected', () => {
+  document.getElementById('ds4-sub').textContent = 'DualShock 4 · disconnected';
+});
+
+// Init
+document.getElementById('intensity-slider').style.setProperty('--pct', '70%');
+connectSSE();
+</script>
+</body>
+</html>

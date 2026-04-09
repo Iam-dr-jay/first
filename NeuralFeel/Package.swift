@@ -4,27 +4,18 @@ import PackageDescription
 let package = Package(
     name: "NeuralFeel",
     platforms: [
-        .watchOS(.v10),
         .iOS(.v17)
     ],
     products: [
-        .library(name: "NeuralFeelWatch", targets: ["NeuralFeelWatch"]),
-        .library(name: "NeuralFeelPhone", targets: ["NeuralFeelPhone"])
+        .library(name: "NeuralFeel", targets: ["NeuralFeel"])
     ],
     targets: [
-        // Apple Watch target
         .target(
-            name: "NeuralFeelWatch",
-            path: "Sources/NeuralFeelWatch",
+            name: "NeuralFeel",
+            path: "Sources/NeuralFeel",
             resources: [
                 .process("Resources")
             ]
-        ),
-        // iPhone 13 Pro Max companion console target
-        .target(
-            name: "NeuralFeelPhone",
-            dependencies: ["NeuralFeelWatch"],   // shares FeelProgram model
-            path: "Sources/NeuralFeelPhone"
         )
     ]
 )
